@@ -106,6 +106,27 @@ def test_version_floor_load_time_warning(monkeypatch, caplog):
     assert any("voxcpm>=2.0.3" in r.getMessage() for r in caplog.records)
 
 
+def test_inprocess_load_disables_torch_compile(monkeypatch):
+    """#3567: voxcpm's default optimize=True compiles with CUDA graph trees,
+    which are thread-local; generation runs on a worker thread, so every
+    VoxCPM2 render asserted in cudagraph_trees. The in-process loader must
+    pass optimize=False, as the subprocess engine already does."""
+    seen = {}
+    fake = types.ModuleType("voxcpm")
+
+    class _FakeVoxCPM:
+        @classmethod
+        def from_pretrained(cls, *a, **kw):
+            seen.update(kw)
+            return types.SimpleNamespace()
+
+    fake.VoxCPM = _FakeVoxCPM
+    monkeypatch.setitem(sys.modules, "voxcpm", fake)
+    monkeypatch.setattr(tts_backend, "_voxcpm_installed_version", lambda: "2.0.3")
+    tts_backend.VoxCPM2Backend()._ensure_loaded()
+    assert seen.get("optimize") is False
+
+
 def test_version_tuple_parsing():
     vt = tts_backend._version_tuple
     assert vt("2.0.3") == (2, 0, 3)

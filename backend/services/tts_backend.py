@@ -2193,8 +2193,15 @@ class VoxCPM2Backend(TTSBackend):
         logger.info("Loading VoxCPM2 from %s", checkpoint)
         # #1224: this first-use download is multi-GB. Unretried, a truncated
         # body at 90% aborted the load outright.
+        # optimize=False (#3567): voxcpm's default torch.compile uses
+        # mode="reduce-overhead", i.e. CUDA graph trees, whose state is
+        # thread-local. Generation runs on a worker thread, so every call
+        # failed with `assert torch._C._is_key_in_tls(...)`. The subprocess
+        # engine already loads this way.
         self._model = _retry_once_with_fresh_hf_client(
-            lambda: VoxCPM.from_pretrained(checkpoint, load_denoiser=False),
+            lambda: VoxCPM.from_pretrained(
+                checkpoint, load_denoiser=False, optimize=False
+            ),
             "VoxCPM2",
         )
 
