@@ -158,8 +158,9 @@ def test_workflow_uses_trusted_target_orchestration_and_privileged_status():
     (job,) = wf["jobs"].values()
     checkout, run = job["steps"]
     assert re.fullmatch(r"actions/checkout@[0-9a-f]{40}", checkout["uses"])
+    assert job["env"] == {"BASE_SHA": "${{ github.event.pull_request.base.sha }}"}
     assert checkout["with"] == {
-        "ref": "${{ github.event.pull_request.base.sha }}",
+        "ref": "${{ env.BASE_SHA }}",
         "fetch-depth": "0",
         "persist-credentials": "false",
     }
