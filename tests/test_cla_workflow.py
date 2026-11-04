@@ -129,7 +129,13 @@ def test_privileged_workflows_never_run_pull_request_code():
                 if uses.startswith("actions/checkout@"):
                     options = step.get("with") or {}
                     assert "repository" not in options, f"{where} checks out another repository"
-                    assert options.get("ref", "${{ github.sha }}") in {
+                    ref = options.get("ref", "${{ github.sha }}")
+                    # Scorecard flags base.sha written inline, so workflows may route
+                    # it through a job-level env variable; resolve that indirection.
+                    env_ref = re.fullmatch(r"\$\{\{ env\.(\w+) \}\}", ref)
+                    if env_ref:
+                        ref = (job.get("env") or {}).get(env_ref.group(1), ref)
+                    assert ref in {
                         "${{ github.sha }}",
                         "${{ github.event.pull_request.base.sha }}",
                     }, f"{where} checks out a non-base ref"
